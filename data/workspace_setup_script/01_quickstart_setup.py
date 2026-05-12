@@ -34,6 +34,11 @@
 
 # COMMAND ----------
 
+if "catalog" not in dbutils.widgets.getAll():
+    dbutils.widgets.text("catalog", "", "Catalog Name")
+if "schema" not in dbutils.widgets.getAll():
+    dbutils.widgets.text("schema", "", "Schema Name")
+
 CATALOG = dbutils.widgets.get("catalog")
 SCHEMA = dbutils.widgets.get("schema")
 
@@ -438,9 +443,31 @@ for table in tables:
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Step 3: Create Policy Documents Datasets in local repository
+# MAGIC
+# MAGIC This codebase creates synthetic data in a newly generated edu_policy_docs subfolder in the data folder . This holds all the policy documents that vector search index will be utilising
+
+# COMMAND ----------
+
+import os
+import sys
+
+# Add the notebook directory to the path so we can import the script
+notebook_dir = os.path.dirname(os.path.abspath(dbutils.notebook.entry_point.getDbutils().notebook().getContext().notebookPath().get()))
+sys.path.insert(0, f"/Workspace{notebook_dir}")
+
+from generate_edu_policy_docs import generate_docs, EDU_POLICY_DOCS
+
+edu_docs_dir = os.path.join(os.path.dirname(os.path.abspath(".")), "data", "edu_policy_docs")
+generate_docs(edu_docs_dir)
+print(f"Created {len(EDU_POLICY_DOCS)} policy documents in: {edu_docs_dir}")
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## Step 3: Create Policy Documents Table
 # MAGIC
-# MAGIC This reads the 7 FreshMart policy documents from the `data/policy_docs/` directory, splits them into
+# MAGIC This reads the 7 Education policy documents from the `data/policy_docs/` directory, splits them into
 # MAGIC overlapping text chunks, and writes them to a table that Vector Search will index.
 
 # COMMAND ----------
@@ -560,7 +587,7 @@ from databricks.sdk.service.vectorsearch import (
 
 w = WorkspaceClient()
 
-VS_ENDPOINT_NAME = f"edupath-vs-{SCHEMA.replace('_', '-')}"
+VS_ENDPOINT_NAME = f"edupath-vs-{SCHEMA.strip().replace('_', '-')}"
 VS_INDEX_NAME = f"{FULL_SCHEMA}.policy_docs_index"
 
 # --- Create endpoint (or reuse existing) ---
@@ -638,8 +665,7 @@ index = client.create_delta_sync_index(
 
 import json
 
-GENIE_SPACE_TITLE = f"EduPath Academy Data ({SCHEMA})"
-
+GENIE_SPACE_TITLE = f"EduPath_Academy_Data_({SCHEMA})"
 
 # Get the first available SQL warehouse
 warehouses = w.warehouses.list()
@@ -714,6 +740,32 @@ try:
 except Exception:
     experiment_id = mlflow.create_experiment(experiment_name)
     print(f"MLflow experiment created: {experiment_name} (ID: {experiment_id})")
+
+# COMMAND ----------
+
+from pyspark.sql.functions import pandas_udf
+from pyspark.sql.types import ArrayType, IntegerType
+import pandas as pd
+
+# Register as a Python UC function in the same schema
+spark.sql(f"""
+CREATE OR REPLACE FUNCTION {FULL_SCHEMA}.student_forecast(
+    current_students INT,
+    monthly_growth INT
+)
+RETURNS ARRAY<INT>
+LANGUAGE PYTHON
+AS $$
+def deterministic_student_forecast(current_students: int, monthly_growth: int = 10) -> list:
+    return [current_students + monthly_growth * i for i in range(1, 7)]
+return deterministic_student_forecast(current_students, monthly_growth)
+$$
+""")
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC select ${catalog}.${schema}.student_forecast(20, 10) as result
 
 # COMMAND ----------
 
