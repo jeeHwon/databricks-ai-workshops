@@ -1,0 +1,60 @@
+bundle:
+  name: agent_openai_agents_sdk
+
+resources:
+  apps:
+    agent_openai_agents_sdk:
+      name: "my-agent-app"
+      description: "OpenAI Agents SDK agent application"
+      source_code_path: ./
+      config:
+        command: ["uv", "run", "start-app"]
+        env:
+          - name: MLFLOW_TRACKING_URI
+            value: "databricks"
+          - name: MLFLOW_REGISTRY_URI
+            value: "databricks-uc"
+          - name: API_PROXY
+            value: "http://localhost:8000/invocations"
+          - name: CHAT_APP_PORT
+            value: "3000"
+          - name: CHAT_PROXY_TIMEOUT_SECONDS
+            value: "300"
+          - name: MLFLOW_EXPERIMENT_ID
+            value_from: "experiment"
+          - name: LAKEBASE_AUTOSCALING_ENDPOINT
+            value_from: "postgres"
+          - name: LAKEBASE_AGENT_MEMORY_SCHEMA
+            value: "agent_openai_memory"
+          - name: PGDATABASE
+            value: "databricks_postgres"
+          - name: PGPORT
+            value: "5432"
+
+      # Resources which this app has access to
+      resources:
+        - name: 'experiment'
+          experiment:
+            experiment_id: "<your-experiment-id>"
+            permission: 'CAN_MANAGE'
+        - name: 'postgres'
+          postgres:
+            branch: "projects/<your-project>/branches/production"
+            database: "projects/<your-project>/branches/production/databases/<your-database-id>"
+            permission: 'CAN_CONNECT_AND_CREATE'
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://<your-workspace>.cloud.databricks.com
+
+  prod:
+    mode: production
+    workspace:
+      host: https://<your-workspace>.cloud.databricks.com
+    resources:
+      apps:
+        agent_openai_agents_sdk:
+          name: my-agent-app
