@@ -20,7 +20,8 @@ _CONFIG = {
         "brand": "FreshMart",
         "genie_title": lambda schema: f"FreshMart_Retail_Data_({schema})",
         "genie_description": (
-            "FreshMart grocery retail data. Customers, products, stores, transactions, and payments."
+            "Explore FreshMart grocery retail operations—shopper loyalty, product assortment, "
+            "store performance, and purchase patterns—in plain English."
         ),
         "vs_prefix": lambda schema: f"freshmart-vs-{schema.strip().replace('_', '-')}",
         "mlflow_suffix": "freshmart-agent-workshop",
@@ -31,7 +32,8 @@ _CONFIG = {
         "brand": "EduPath Academy",
         "genie_title": lambda schema: f"EduPath_Academy_Data_({schema})",
         "genie_description": (
-            "EduPath Academy data. Students, courses, campuses, enrollments, and tuition payments."
+            "Explore EduPath Academy higher-education operations—student enrollment, course offerings, "
+            "campus activity, and tuition patterns—in plain English."
         ),
         "vs_prefix": lambda schema: f"edupath-vs-{schema.strip().replace('_', '-')}",
         "mlflow_suffix": "edupath-agent-workshop",
@@ -50,7 +52,8 @@ $$""",
         "brand": "Meridian Capital Partners",
         "genie_title": lambda schema: f"Meridian_Capital_Data_({schema})",
         "genie_description": (
-            "Meridian Capital Partners data. Clients, instruments, branches, accounts, trades, and settlements."
+            "Explore Meridian Capital Partners wealth-management and trading activity—client relationships, "
+            "portfolio exposure, branch performance, and settlement flows—in plain English."
         ),
         "vs_prefix": lambda schema: f"meridian-vs-{schema.strip().replace('_', '-')}",
         "mlflow_suffix": "meridian-agent-workshop",

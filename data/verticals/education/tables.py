@@ -115,6 +115,10 @@ def random_email(first, last):
     return f"{first.lower()}{sep}{last.lower()}{num}@{random.choice(domains)}"
 
 
+def random_zip():
+    return f"{random.randint(10000, 99999)}"
+
+
 def generate(spark, full_schema: str, seed: int = 42) -> list[str]:
     random.seed(seed)
     # ── 1. Customers ───────────────────────────────────────────────────

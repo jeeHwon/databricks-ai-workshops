@@ -335,6 +335,9 @@ print_asset_link("MLflow experiment", mlflow_experiment_url(WORKSPACE_HOST, expe
 from lib.workspace_links import uc_function_url
 
 if workshop.optional_udf_sql:
+    print("UC function SQL definition:")
+    print(workshop.optional_udf_sql.strip())
+    print()
     spark.sql(workshop.optional_udf_sql)
     udf_full_name = f"{FULL_SCHEMA}.{workshop.optional_udf_name}"
     print(f"Registered UC function: {udf_full_name}")
