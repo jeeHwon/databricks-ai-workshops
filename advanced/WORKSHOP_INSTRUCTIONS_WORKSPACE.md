@@ -1,78 +1,78 @@
-# Workshop: Deploy Retail Grocery AI Agent (Workspace Only)
+# 워크숍: 리테일 식료품 AI 에이전트 배포하기 (워크스페이스 전용)
 
-This guide walks you through deploying the L300 AI agent app **entirely from within a Databricks workspace** — no local machine setup, no terminal installations needed on your laptop.
+이 가이드는 L300 AI 에이전트 앱을 **Databricks 워크스페이스 안에서만** 배포하는 과정을 안내합니다. 로컬 머신 설정이나 노트북(랩톱)에 터미널 툴을 설치할 필요가 없습니다.
 
-By the end, you'll have a full-stack chat application with long-term memory, document search, and data querying — deployed as a Databricks App.
-
----
-
-## Prerequisites
-
-Before you start, confirm your Databricks workspace has these features enabled (ask your workspace admin if unsure):
-
-- **Unity Catalog** — for organizing data tables and permissions
-- **Databricks Apps** — for hosting the chat application
-- **Lakebase** — managed PostgreSQL database (used for agent memory + chat history)
-- **Vector Search** — for semantic document retrieval
-- **Foundation Model API** — Claude access via Databricks endpoints
-- **Web Terminal** — an in-browser terminal (Settings > Developer > Web Terminal)
-- A **running SQL warehouse** — needed to create data tables (Compute > SQL Warehouses)
+가이드를 마치면 장기 메모리, 문서 검색, 데이터 질의 기능을 갖춘 풀스택 채팅 애플리케이션을 Databricks App으로 배포하게 됩니다.
 
 ---
 
-## Step 1: Import the Repository into Your Workspace
+## 사전 준비 사항
 
-This brings the code into your Databricks workspace so you can edit and deploy it.
+시작하기 전에 Databricks 워크스페이스에 다음 기능이 활성화되어 있는지 확인하세요(확실하지 않으면 워크스페이스 관리자에게 문의하세요):
 
-1. In the left sidebar, click **Workspace** > **Repos** (may also appear as "Git Folders")
-2. Click **Add** > **Git Folder**
-3. Paste the repository URL: `https://github.com/AnanyaDBJ/databricks-ai-workshops.git`
-4. Click **Create Git Folder**
+- **Unity Catalog** — 데이터 테이블과 권한 관리
+- **Databricks Apps** — 채팅 애플리케이션 호스팅
+- **Lakebase** — 관리형 PostgreSQL 데이터베이스 (에이전트 메모리 + 채팅 이력 저장)
+- **Vector Search** — 시맨틱 문서 검색(retrieval)
+- **Foundation Model API** — Databricks 엔드포인트를 통한 Claude 사용
+- **Web Terminal** (웹 터미널) — 브라우저 내 터미널 (Settings > Developer > Web Terminal)
+- **실행 중인 SQL warehouse** — 데이터 테이블 생성에 필요 (Compute > SQL Warehouses)
 
-Once imported, your code will be at a path like:
+---
+
+## 1단계: 리포지토리를 워크스페이스로 가져오기
+
+코드를 Databricks 워크스페이스로 가져와 직접 수정하고 배포할 수 있게 합니다.
+
+1. 왼쪽 사이드바에서 **Workspace** > **Repos** 클릭 ("Git Folders"로 표시될 수도 있습니다)
+2. **Add** > **Git Folder** 클릭
+3. 리포지토리 URL 붙여넣기: `https://github.com/AnanyaDBJ/databricks-ai-workshops.git`
+4. **Create Git Folder** 클릭
+
+가져오기가 완료되면 코드는 다음과 같은 경로에 있습니다:
 `/Workspace/Repos/<your-username>/databricks-ai-workshops/`
 
 ---
 
-## Step 2: Set Up Your Data
+## 2단계: 데이터 설정
 
-Complete **Path B (Workspace Notebook)** from [`data/README.md`](../data/README.md#path-b-workspace-notebook).
+[`data/README.md`](../data/README.md#path-b-워크스페이스-노트북)의 **Path B (워크스페이스 노트북)** 를 완료하세요.
 
-When done, save these 4 values from the notebook output — you'll need them in Step 5:
+완료되면 노트북 출력에서 다음 4개 값을 저장해 두세요 — 5단계에서 필요합니다:
 
-| What to copy | Looks like | You'll use it in |
+| 복사할 값 | 형태 예시 | 사용하는 단계 |
 |------|---------|---------|
-| MLflow Experiment ID | `1234567890123456` | Step 5 (`databricks.yml`) |
-| Vector Search Index name | `my_catalog.my_schema.policy_docs_index` | Step 5 (`databricks.yml`) |
-| Genie Space ID | `01abcdef12345678` | Step 5 (`databricks.yml`) |
-| Catalog.Schema | `my_catalog.my_schema` | Step 7 (permissions) |
+| MLflow Experiment ID | `1234567890123456` | 5단계 (`databricks.yml`) |
+| Vector Search Index 이름 | `my_catalog.my_schema.policy_docs_index` | 5단계 (`databricks.yml`) |
+| Genie Space ID | `01abcdef12345678` | 5단계 (`databricks.yml`) |
+| Catalog.Schema | `my_catalog.my_schema` | 7단계 (권한) |
 
 ---
 
-## Step 3: Create a Lakebase Instance
+## 3단계: Lakebase 인스턴스 생성
 
-Lakebase is a managed PostgreSQL database inside Databricks. Your app uses it for:
-- **Agent long-term memory** (remembers user preferences across sessions)
-- **Chat UI history** (persistent conversation sidebar)
+Lakebase는 Databricks 안의 관리형 PostgreSQL 데이터베이스입니다. 앱은 이를 다음 용도로 사용합니다:
+- **에이전트 장기 메모리** (세션이 바뀌어도 사용자 선호를 기억)
+- **채팅 UI 이력** (대화 사이드바 영구 저장)
 
-### Create the instance
+### 인스턴스 생성
 
-1. In the left sidebar, go to **Compute** > **Lakebase**
-2. Click **Create Project** > choose **Autoscaling**
-3. Name it something memorable (e.g., `l300-workshop`)
-4. Click Create — a `production` branch is created automatically (or name your branch)
-5. Wait ~1-2 minutes for it to show as "Ready"
+1. 왼쪽 사이드바에서 **Compute** > **Lakebase**로 이동
+2. **Create Project** 클릭 > **Autoscaling** 선택
+3. 기억하기 쉬운 이름 지정 (예: `l300-workshop`)
+4. Create 클릭 — `production` 브랜치가 자동으로 생성됩니다 (직접 브랜치 이름을 지정할 수도 있습니다)
+5. "Ready" 상태가 될 때까지 1~2분 정도 기다리세요
 
-### Find your connection details
+### 연결 정보 확인
 
-You need two paths that tell the app where your database lives:
+앱이 데이터베이스 위치를 알 수 있도록 두 가지 경로가 필요합니다:
 
-**Option A — From the Lakebase UI:**
-1. Click your project name
-2. Click on the branch (e.g., `production`)
-3. Note the **Project name** and **Branch name**
+**옵션 A — Lakebase UI에서:**
+1. 프로젝트 이름 클릭
+2. 브랜치(예: `production`) 클릭
+3. **프로젝트 이름**과 **브랜치 이름**을 기록
 
-**Option B — From a notebook:**
+**옵션 B — 노트북에서:**
 ```python
 from databricks.sdk import WorkspaceClient
 w = WorkspaceClient()
@@ -81,63 +81,63 @@ dbs = w.api_client.do("GET", f"/api/2.0/postgres/projects/<project-name>/branche
 print(dbs)
 ```
 
-From this, note:
-- **Project name**: e.g., `l300-workshop`
-- **Branch name**: e.g., `production` or `l300-workshop-branch`
-- **Branch path**: `projects/l300-workshop/branches/production`
-- **Database path**: `projects/l300-workshop/branches/production/databases/databricks-postgres`
+여기에서 다음 값을 기록하세요:
+- **프로젝트 이름**: 예: `l300-workshop`
+- **브랜치 이름**: 예: `production` 또는 `l300-workshop-branch`
+- **브랜치 경로**: `projects/l300-workshop/branches/production`
+- **데이터베이스 경로**: `projects/l300-workshop/branches/production/databases/databricks-postgres`
 
 ---
 
-## Step 3 (Alternative): Using a Lakebase Provisioned Instance
+## 3단계 (대안): Lakebase Provisioned 인스턴스 사용
 
-If your workspace uses a **Provisioned** Lakebase instance (instead of Autoscaling), follow these steps instead:
+워크스페이스에서 Autoscaling 대신 **Provisioned** Lakebase 인스턴스를 사용한다면 다음 단계를 따르세요:
 
-1. In the left sidebar, go to **Compute** > **Lakebase**
-2. Click **Create** > choose **Provisioned**
-3. Name it something memorable (e.g., `l300-workshop`)
-4. Select a capacity (e.g., `CU_1` for the smallest size)
-5. Click Create and wait for it to show as "Running"
+1. 왼쪽 사이드바에서 **Compute** > **Lakebase**로 이동
+2. **Create** 클릭 > **Provisioned** 선택
+3. 기억하기 쉬운 이름 지정 (예: `l300-workshop`)
+4. 용량 선택 (예: 가장 작은 크기인 `CU_1`)
+5. Create를 클릭하고 "Running" 상태가 될 때까지 대기
 
-The only value you need is the **instance name** — this is simply the name you chose (e.g., `l300-workshop`).
+필요한 값은 **인스턴스 이름** 하나뿐입니다 — 직접 지정한 이름 그대로입니다 (예: `l300-workshop`).
 
-When you get to Step 5, see the "Provisioned Lakebase" note for the different configuration.
-
----
-
-## Step 4: Confirm the MLflow Experiment ID
-
-The data setup notebook (Step 2) already created an MLflow experiment for you. Confirm the **Experiment ID**:
-
-1. In the left sidebar, click **Experiments**
-2. Find the experiment created by the notebook (look for the name printed in Step 2's output)
-3. Click on it — the **Experiment ID** is the long number in your browser's URL bar (e.g., the `1234567890123456` part of `.../ml/experiments/1234567890123456`)
-
-**If you can't find it or need a new one:**
-1. Go to **Experiments** in the left sidebar
-2. Click **Create Experiment** (top-right)
-3. Give it a name (e.g., `l300-retail-agent`)
-4. Click Create — copy the Experiment ID from the URL
+5단계에 도달하면 "Provisioned Lakebase" 안내에 따라 다른 구성을 적용하세요.
 
 ---
 
-## Step 5: Edit `databricks.yml`
+## 4단계: MLflow Experiment ID 확인
 
-Navigate to `advanced/databricks.yml` in the workspace file browser and edit it. This file tells Databricks how to deploy your app and what resources it needs.
+데이터 설정 노트북(2단계)이 이미 MLflow 실험(experiment)을 생성해 두었습니다. **Experiment ID**를 확인하세요:
 
-### Find-and-replace these values:
+1. 왼쪽 사이드바에서 **Experiments** (실험) 클릭
+2. 노트북이 생성한 실험을 찾으세요 (2단계 출력에 표시된 이름 참고)
+3. 클릭하면 — 브라우저 URL에 표시되는 긴 숫자가 **Experiment ID**입니다 (예: `.../ml/experiments/1234567890123456`에서 `1234567890123456` 부분)
 
-| Find this | Replace with | Where you got it |
+**찾을 수 없거나 새로 만들어야 한다면:**
+1. 왼쪽 사이드바에서 **Experiments**로 이동
+2. 오른쪽 위의 **Create Experiment** 클릭
+3. 이름 지정 (예: `l300-retail-agent`)
+4. Create 클릭 — URL에서 Experiment ID를 복사
+
+---
+
+## 5단계: `databricks.yml` 편집
+
+워크스페이스 파일 브라우저에서 `advanced/databricks.yml`로 이동해 편집하세요. 이 파일은 Databricks가 앱을 어떻게 배포하고 어떤 리소스가 필요한지를 정의합니다.
+
+### 다음 값을 찾아 바꾸세요:
+
+| 찾을 값 | 바꿀 값 | 출처 |
 |---|---|---|
-| `"4040511589772447"` (experiment_id) | Your Experiment ID | Step 4 |
-| `"01f1595900051132b572b1f717285d6f"` (space_id) | Your Genie Space ID | Step 2 |
-| `"ai_days_experiment_catalog.retail_agent.policy_docs_index"` (securable_full_name) | Your `catalog.schema.policy_docs_index` | Step 2 |
-| `"l300-workshop-smoke-test"` (LAKEBASE_AUTOSCALING_PROJECT value) | Your Lakebase project name | Step 3 |
-| `"l300-workshop-smoke-test-branch"` (LAKEBASE_AUTOSCALING_BRANCH value) | Your Lakebase branch name | Step 3 |
-| `"projects/l300-workshop-smoke-test/branches/l300-workshop-smoke-test-branch"` (postgres branch) | Your branch path | Step 3 |
-| `"projects/l300-workshop-smoke-test/branches/l300-workshop-smoke-test-branch/databases/databricks-postgres"` (postgres database) | Your database path | Step 3 |
+| `"4040511589772447"` (experiment_id) | 본인의 Experiment ID | 4단계 |
+| `"01f1595900051132b572b1f717285d6f"` (space_id) | 본인의 Genie Space ID | 2단계 |
+| `"ai_days_experiment_catalog.retail_agent.policy_docs_index"` (securable_full_name) | 본인의 `catalog.schema.policy_docs_index` | 2단계 |
+| `"l300-workshop-smoke-test"` (LAKEBASE_AUTOSCALING_PROJECT value) | 본인의 Lakebase 프로젝트 이름 | 3단계 |
+| `"l300-workshop-smoke-test-branch"` (LAKEBASE_AUTOSCALING_BRANCH value) | 본인의 Lakebase 브랜치 이름 | 3단계 |
+| `"projects/l300-workshop-smoke-test/branches/l300-workshop-smoke-test-branch"` (postgres branch) | 본인의 브랜치 경로 | 3단계 |
+| `"projects/l300-workshop-smoke-test/branches/l300-workshop-smoke-test-branch/databases/databricks-postgres"` (postgres database) | 본인의 데이터베이스 경로 | 3단계 |
 
-### Here's what the key sections should look like after your edits:
+### 편집 후 주요 섹션은 다음과 같은 모습이어야 합니다:
 
 ```yaml
 bundle:
@@ -201,11 +201,11 @@ targets:
       root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/retail_grocery_ltm_memory/${bundle.target}
 ```
 
-### Provisioned Lakebase — different configuration
+### Provisioned Lakebase — 다른 구성
 
-If you're using a Provisioned instance (Step 3 Alternative), make these changes instead:
+Provisioned 인스턴스(3단계 대안)를 사용한다면 대신 다음과 같이 변경하세요:
 
-1. Replace the `postgres` resource with a `database` resource:
+1. `postgres` 리소스를 `database` 리소스로 교체:
 ```yaml
         - name: "postgres"
           database:
@@ -214,49 +214,49 @@ If you're using a Provisioned instance (Step 3 Alternative), make these changes 
             permission: CAN_CONNECT_AND_CREATE
 ```
 
-2. Replace the Lakebase env vars:
+2. Lakebase 환경 변수 교체:
 ```yaml
           - name: LAKEBASE_INSTANCE_NAME
             value: "l300-workshop"                    # ← your instance name
 ```
-(Remove `LAKEBASE_AUTOSCALING_PROJECT` and `LAKEBASE_AUTOSCALING_BRANCH`)
+(`LAKEBASE_AUTOSCALING_PROJECT`와 `LAKEBASE_AUTOSCALING_BRANCH`는 제거하세요)
 
 ---
 
-## Step 6: Deploy the App
+## 6단계: 앱 배포
 
-Open the **Web Terminal**: click the `>_` terminal icon in the bottom panel of your workspace, or go to Settings > Developer > Web Terminal.
+**Web Terminal**을 여세요: 워크스페이스 하단 패널의 `>_` 터미널 아이콘을 클릭하거나, Settings > Developer > Web Terminal로 이동합니다.
 
-### Deploy steps
+### 배포 단계
 
-1. Navigate to the `advanced` folder:
+1. `advanced` 폴더로 이동:
    ```bash
    cd /Workspace/Repos/<your-username>/databricks-ai-workshops/advanced
    ```
 
-2. Validate your configuration (checks for errors in `databricks.yml`):
+2. 구성 검증 (`databricks.yml`의 오류 확인):
    ```bash
    databricks bundle validate -t dev
    ```
-   If this prints errors, go back to Step 5 and fix the placeholders.
+   오류가 출력되면 5단계로 돌아가 플레이스홀더를 수정하세요.
 
-3. Deploy the bundle (uploads code and registers the app):
+3. 번들 배포 (코드 업로드 및 앱 등록):
    ```bash
    databricks bundle deploy -t dev
    ```
 
-4. Start the app:
+4. 앱 시작:
    ```bash
    databricks apps start retail-grocery-ltm-memory
    ```
 
-5. Wait for the app to reach RUNNING state (first startup takes 3-5 minutes):
+5. 앱이 RUNNING 상태가 될 때까지 대기 (첫 시작은 3~5분 소요):
    ```bash
    databricks apps get retail-grocery-ltm-memory --output json | jq -r '.status.state'
    ```
-   Repeat until it shows `RUNNING`.
+   `RUNNING`이 표시될 때까지 반복 실행하세요.
 
-6. Deploy the source code to the running app:
+6. 실행 중인 앱에 소스 코드 배포:
    ```bash
    DATABRICKS_USERNAME=$(databricks current-user me | jq -r .userName)
    databricks apps deploy retail-grocery-ltm-memory \
@@ -265,20 +265,20 @@ Open the **Web Terminal**: click the `>_` terminal icon in the bottom panel of y
 
 ---
 
-## Step 7: Grant Permissions
+## 7단계: 권한 부여
 
-The app runs as a service principal that needs access to your resources.
+앱은 서비스 프린시펄로 실행되며, 이 프린시펄이 리소스에 접근할 수 있어야 합니다.
 
-### Get the service principal ID
+### 서비스 프린시펄 ID 확인
 
 ```bash
 SP_CLIENT_ID=$(databricks apps get retail-grocery-ltm-memory --output json | jq -r '.service_principal_client_id')
 echo "App SP Client ID: $SP_CLIENT_ID"
 ```
 
-### Grant Unity Catalog access
+### Unity Catalog 접근 권한 부여
 
-Run in the SQL Editor or a notebook:
+SQL Editor 또는 노트북에서 실행하세요:
 
 ```sql
 GRANT USE CATALOG ON CATALOG <your-catalog> TO `<SP_CLIENT_ID>`;
@@ -286,15 +286,15 @@ GRANT USE SCHEMA ON SCHEMA <your-catalog>.<your-schema> TO `<SP_CLIENT_ID>`;
 GRANT SELECT ON SCHEMA <your-catalog>.<your-schema> TO `<SP_CLIENT_ID>`;
 ```
 
-### Grant Genie Space access
+### Genie Space 접근 권한 부여
 
-1. In the left sidebar, go to your **Genie Space**
-2. Click **Share** (top-right)
-3. Add the service principal (search by client ID) with **Can Run** permission
+1. 왼쪽 사이드바에서 본인의 **Genie Space**로 이동
+2. 오른쪽 위의 **Share** (공유) 클릭
+3. 서비스 프린시펄을 추가 (클라이언트 ID로 검색)하고 **Can Run** 권한 부여
 
-### Grant Lakebase access (if needed)
+### Lakebase 접근 권한 부여 (필요한 경우)
 
-If you see "permission denied" errors related to Lakebase, run the permission script from the Web Terminal:
+Lakebase 관련 "permission denied" 오류가 보이면 Web Terminal에서 권한 스크립트를 실행하세요:
 
 ```bash
 cd /Workspace/Repos/<your-username>/databricks-ai-workshops/advanced
@@ -307,55 +307,55 @@ python scripts/grant_lakebase_permissions.py "$SP_CLIENT_ID" \
 
 ---
 
-## Step 8: Verify the Deployment
+## 8단계: 배포 확인
 
-### Check app status
+### 앱 상태 확인
 
-1. In the left sidebar, go to **Compute** > **Apps**
-2. Find your app — the status dot should turn green and show **Running**
-3. If it shows **Starting**, wait a few more minutes (it's installing dependencies)
-4. If it shows **Crashed**, see the Troubleshooting section below
+1. 왼쪽 사이드바에서 **Compute** > **Apps**로 이동
+2. 본인 앱을 찾으세요 — 상태 표시가 초록색으로 바뀌며 **Running**이 표시되어야 합니다
+3. **Starting**이 표시되면 몇 분 더 기다리세요 (의존성을 설치하는 중입니다)
+4. **Crashed**가 표시되면 아래 트러블슈팅 섹션을 참고하세요
 
-### Check logs (if something seems wrong)
+### 로그 확인 (이상이 있어 보일 때)
 
-1. Click your app name > go to the **Logs** tab
-2. Look for these lines that mean everything is working:
-   - `"Uvicorn running on http://0.0.0.0:8000"` — backend is ready
-   - `"Server is running on http://localhost:3000"` — frontend is ready
+1. 앱 이름 클릭 > **Logs** 탭으로 이동
+2. 다음 줄이 보이면 정상 동작 중입니다:
+   - `"Uvicorn running on http://0.0.0.0:8000"` — 백엔드 준비 완료
+   - `"Server is running on http://localhost:3000"` — 프런트엔드 준비 완료
 
-### Test the app
+### 앱 테스트
 
-1. Click the **app URL** (shown at the top of the app page) to open the chat interface
-2. Try these test prompts:
+1. 앱 페이지 상단에 표시된 **앱 URL**을 클릭해 채팅 인터페이스를 여세요
+2. 다음 테스트 프롬프트를 시험해 보세요:
 
-| Prompt | What it tests |
+| 프롬프트 | 테스트 대상 |
 |--------|---------------|
-| "What are the top 5 products by revenue?" | Genie Space (structured data queries) |
-| "What is the return policy for perishable items?" | Vector Search (policy document retrieval) |
-| "Remember that I prefer organic products" | Long-term memory (store preference) |
-| "What are my preferences?" (in a new chat) | Long-term memory (recall preference) |
+| "매출 기준 상위 5개 제품은 무엇인가요?" (원문: "What are the top 5 products by revenue?") | Genie Space (정형 데이터 질의) |
+| "신선식품 반품 정책은 무엇인가요?" (원문: "What is the return policy for perishable items?") | Vector Search (정책 문서 검색) |
+| "제가 유기농 제품을 선호한다는 걸 기억해 주세요" (원문: "Remember that I prefer organic products") | 장기 메모리 (선호 저장) |
+| "제 선호사항이 뭐였죠?" (원문: "What are my preferences?") (새 채팅에서) | 장기 메모리 (선호 회상) |
 
-If the agent responds with relevant answers, you're done!
+에이전트가 적절한 답변을 내놓으면 완료입니다!
 
 ---
 
-## Troubleshooting
+## 트러블슈팅
 
-| What you see | What went wrong | How to fix it |
+| 증상 | 원인 | 해결 방법 |
 |---|---|---|
-| `databricks bundle validate` shows errors | Typo or unreplaced placeholder in YAML | Read the error — it usually points to the exact line. Check all values from Steps 2-4 are filled in |
-| App shows **Crashed** | Usually a config issue | Click app > Logs tab > scroll to the error |
-| `unhandled errors in a TaskGroup` | GENIE_SPACE_ID or VECTOR_SEARCH_INDEX is invalid | Verify the Genie Space ID and VS index name match Step 2 output exactly |
-| `permission denied for schema` | Service principal can't access Lakebase | Re-run Step 7 (Lakebase permissions section) |
-| `relation "ai_chatbot"."Chat" already exists` | Database tables were created manually | Drop them: `DROP SCHEMA IF EXISTS ai_chatbot CASCADE; DROP SCHEMA IF EXISTS drizzle CASCADE;` then restart app |
-| Agent doesn't use tools | Wrong resource IDs in config | Verify Genie Space ID and VS index in `databricks.yml` match Step 2 output |
-| Vector Search returns no results | Index hasn't finished syncing | Wait 5-10 minutes after Step 2. Check sync status in Catalog Explorer > find your index > Sync tab |
-| `Cannot deploy app... not in RUNNING state` | App must be started before deploying source code | Run `databricks apps start retail-grocery-ltm-memory` and wait for RUNNING state |
-| `UniqueViolation` on first startup | Race condition in table creation | Safe to ignore — handled automatically on retry |
+| `databricks bundle validate`에서 오류 표시 | YAML의 오타 또는 미교체 플레이스홀더 | 오류 메시지를 읽어 보세요 — 대개 정확한 줄을 알려줍니다. 2~4단계 값이 모두 채워졌는지 확인하세요 |
+| 앱이 **Crashed** 표시 | 대개 구성 문제 | 앱 클릭 > Logs 탭 > 오류 위치까지 스크롤 |
+| `unhandled errors in a TaskGroup` | GENIE_SPACE_ID 또는 VECTOR_SEARCH_INDEX가 잘못됨 | Genie Space ID와 VS 인덱스 이름이 2단계 출력과 정확히 일치하는지 확인 |
+| `permission denied for schema` | 서비스 프린시펄이 Lakebase에 접근 불가 | 7단계(Lakebase 권한 섹션)를 다시 실행 |
+| `relation "ai_chatbot"."Chat" already exists` | 데이터베이스 테이블을 수동으로 생성함 | 삭제: `DROP SCHEMA IF EXISTS ai_chatbot CASCADE; DROP SCHEMA IF EXISTS drizzle CASCADE;` 실행 후 앱 재시작 |
+| 에이전트가 툴을 사용하지 않음 | 구성에 잘못된 리소스 ID | `databricks.yml`의 Genie Space ID와 VS 인덱스가 2단계 출력과 일치하는지 확인 |
+| Vector Search 결과 없음 | 인덱스 동기화가 끝나지 않음 | 2단계 이후 5~10분 대기. Catalog Explorer > 인덱스 찾기 > Sync 탭에서 동기화 상태 확인 |
+| `Cannot deploy app... not in RUNNING state` | 소스 코드 배포 전에 앱을 먼저 시작해야 함 | `databricks apps start retail-grocery-ltm-memory` 실행 후 RUNNING 상태 대기 |
+| 첫 시작 시 `UniqueViolation` | 테이블 생성 시 경쟁 조건(race condition) | 무시해도 안전 — 재시도 시 자동으로 처리됨 |
 
 ---
 
-## Architecture
+## 아키텍처
 
 ```
 ┌───────────────────── Databricks Workspace ─────────────────────────┐
@@ -404,14 +404,14 @@ If the agent responds with relevant answers, you're done!
 
 ---
 
-## Summary: What You Create vs. What the App Creates
+## 정리: 직접 만드는 것 vs. 앱이 만드는 것
 
-| Resource | Who creates it | When | Do you need to do anything? |
+| 리소스 | 생성 주체 | 시점 | 직접 해야 할 일이 있나요? |
 |---|---|---|---|
-| Data tables + Vector Search + Genie | You | Step 2 (run notebook) | Yes — run the notebook |
-| MLflow Experiment | You | Step 2 (notebook creates it) | Just note the ID |
-| Lakebase instance | You | Step 3 (create in UI) | Yes — create in UI |
-| The deployed App itself | You | Step 6 (deploy commands) | Yes — deploy it |
-| Agent memory tables | The app | Automatically at first startup | No — hands off! |
-| Chat history tables | The app | Automatically at first startup | No — hands off! |
-| Database permissions | Not needed | — | The app owns its own tables |
+| 데이터 테이블 + Vector Search + Genie | 본인 | 2단계 (노트북 실행) | 예 — 노트북을 실행하세요 |
+| MLflow Experiment | 본인 | 2단계 (노트북이 생성) | ID만 기록해 두세요 |
+| Lakebase 인스턴스 | 본인 | 3단계 (UI에서 생성) | 예 — UI에서 생성하세요 |
+| 배포된 앱 자체 | 본인 | 6단계 (배포 명령어) | 예 — 직접 배포하세요 |
+| 에이전트 메모리 테이블 | 앱 | 첫 시작 시 자동 | 아니요 — 손대지 마세요! |
+| 채팅 이력 테이블 | 앱 | 첫 시작 시 자동 | 아니요 — 손대지 마세요! |
+| 데이터베이스 권한 | 필요 없음 | — | 앱이 자기 테이블을 직접 소유합니다 |
